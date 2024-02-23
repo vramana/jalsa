@@ -69,7 +69,13 @@ func main() {
 	contents := string(b)
 	sentences := strings.Split(contents, "\n")[47:58]
 
+  frontMatter := false
+
 	for _, sentence := range sentences {
+    if sentence == "+++" {
+      frontMatter = !frontMatter
+      continue
+    }
 		if sentence == "" {
 			continue
 		}
