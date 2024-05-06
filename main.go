@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sashabaranov/go-openai"
@@ -66,16 +67,19 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	contents := string(b)
-	sentences := strings.Split(contents, "\n")[47:58]
 
-  frontMatter := false
+	fmt.Printf("Reading file: %s\n", arg)
+
+	contents := string(b)
+	sentences := strings.Split(contents, "\n")
+
+	frontMatter := false
 
 	for _, sentence := range sentences {
-    if sentence == "+++" {
-      frontMatter = !frontMatter
-      continue
-    }
+		if sentence == "+++" {
+			frontMatter = !frontMatter
+			continue
+		}
 		if sentence == "" {
 			continue
 		}
@@ -102,6 +106,8 @@ func main() {
 			continue
 		}
 		fmt.Printf("Result: %s\n", result)
+
+		time.Sleep(100 * time.Millisecond)
 
 		_, err = db.Exec("INSERT INTO sentences (sentence_hash, sentence, correction) VALUES (?, ?, ?)", hash(sentence), sentence, result)
 	}
