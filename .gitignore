@@ -25,3 +25,6 @@ go.work
 common-voice.md
 
 *.db
+main
+
+*.log
