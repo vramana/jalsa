@@ -1,4 +1,4 @@
-module github.com/vramana/jalsa
+module jalsa
 
 go 1.21.7
 

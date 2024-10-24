@@ -6,13 +6,17 @@ import (
 	"crypto/sha256"
 	"log"
 	// "database/sql"
+	// "bytes"
 	"fmt"
+	"io"
 	// "log"
 	"os"
 	// "strings"
 	// "time"
 	// _ "github.com/mattn/go-sqlite3"
 	"github.com/sashabaranov/go-openai"
+
+	"jalsa/lsp"
 )
 
 func checkSentence(sentence string) (string, error) {
@@ -122,14 +126,27 @@ func main() {
 
 	logger.Println("Starting...")
 
+	writer := os.Stdout
+
 	for scanner.Scan() {
-		msg := scanner.Text()
-		logger.Println(msg)
+		msg := scanner.Bytes()
+		method, msg, err := DecodeMessage(msg)
+		if err != nil {
+			logger.Printf("Got an error %s", err)
+			continue
+		}
+		handleMessage(msg, writer, method, logger)
 	}
 }
 
-func handleMessage(msg string) {
+func handleMessage(msg []byte, writer io.Writer, method string, logger *log.Logger) {
+	logger.Printf("Method: %s", method)
+	logger.Println(string(msg))
 
+	switch method {
+	case "initialize":
+		logger.Println(string(msg))
+	}
 }
 
 func getLogger(filename string) *log.Logger {
@@ -139,4 +156,9 @@ func getLogger(filename string) *log.Logger {
 	}
 
 	return log.New(logfile, "[jalsa] ", log.Ldate|log.Ltime|log.Lshortfile)
+}
+
+func writeMessage(writer io.Writer, message any) {
+	data := EncodeMessage(message)
+	writer.Write([]byte(data))
 }
