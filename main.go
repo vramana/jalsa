@@ -129,6 +129,8 @@ func main() {
 
 	writer := os.Stdout
 
+	files := make(map[string]string)
+
 	for scanner.Scan() {
 		msg := scanner.Bytes()
 		method, msg, err := DecodeMessage(msg)
@@ -136,14 +138,13 @@ func main() {
 			logger.Printf("Got an error %s", err)
 			continue
 		}
-		handleMessage(msg, writer, method, logger)
+		handleMessage(msg, writer, method, logger, files)
 	}
+
 }
 
-func handleMessage(msg []byte, writer io.Writer, method string, logger *log.Logger) {
+func handleMessage(msg []byte, writer io.Writer, method string, logger *log.Logger, files map[string]string) {
 	logger.Printf("Method: %s", method)
-	logger.Println(string(msg))
-
 	switch method {
 	case "initialize":
 		request := new(lsp.InitializeRequest)
@@ -152,7 +153,33 @@ func handleMessage(msg []byte, writer io.Writer, method string, logger *log.Logg
 			return
 		}
 		logger.Printf("Connected to client %s %s", request.Params.ClientInfo.Name, request.Params.ClientInfo.Version)
+
+		response := lsp.NewInitializeResponse(request.ID)
+		writeMessage(writer, response)
+	case "textDocument/didOpen":
+		notification := new(lsp.DidOpenTextDocumentNotification)
+		if err := json.Unmarshal(msg, notification); err != nil {
+			logger.Printf("We could not parse %s %s", method, err)
+			return
+		}
+
+		files[notification.Params.TextDocument.URI] = notification.Params.TextDocument.Text
+		logger.Println(notification.Params.TextDocument.Text)
+	case "textDocument/didChange":
+		notification := new(lsp.DidChangeTextDocumentNotification)
+		if err := json.Unmarshal(msg, notification); err != nil {
+			logger.Printf("We could not parse %s %s", method, err)
+			return
+		}
+
+		files[notification.Params.TextDocument.URI] = notification.Params.ContentChanges[0].Text
+	case "textDocument/didSave":
+
+	default:
+		logger.Println(string(msg))
+
 	}
+
 }
 
 func getLogger(filename string) *log.Logger {

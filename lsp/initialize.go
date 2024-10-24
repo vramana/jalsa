@@ -6,9 +6,8 @@ type InitializeRequest struct {
 }
 
 type InitializeParams struct {
-	ProcessID  *int   `json:"processId",omitempty`
-	ClientInfo *Info  `json:"clientInfo",omitempty`
-	RootUri    string `json:"rootUri",omitempty`
+	ProcessID  *int  `json:"processId",omitempty`
+	ClientInfo *Info `json:"clientInfo",omitempty`
 }
 
 type Info struct {
@@ -27,8 +26,37 @@ type InitializeResult struct {
 }
 
 type ServerCapabilities struct {
+	TextDocumentSync TextDocumentSyncOptions `json:"textDocumentSync"`
+}
+
+type TextDocumentSyncOptions struct {
+	OpenClose bool        `json:"openClose"`
+	Change    int         `json:"change"`
+	Save      SaveOptions `json:"save"`
+}
+
+// TODO: Check why doesn't this work?
+type SaveOptions struct {
+	IncludeText bool `json:"incudeText"`
 }
 
 func NewInitializeResponse(ID *int) *InitializeResponse {
-	return nil
+	response := &InitializeResponse{
+		Response: Response{
+			RPC: "2.0",
+			ID:  ID,
+		},
+		Result: &InitializeResult{
+			ServerInfo: &Info{Name: "jalsa", Version: "0.0.1"},
+			Capabilities: ServerCapabilities{
+				TextDocumentSync: TextDocumentSyncOptions{
+					OpenClose: true,
+					Change:    1,
+					Save:      SaveOptions{IncludeText: true},
+				},
+			},
+		},
+	}
+
+	return response
 }
