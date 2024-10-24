@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"log"
 	// "database/sql"
 	// "bytes"
@@ -145,7 +146,12 @@ func handleMessage(msg []byte, writer io.Writer, method string, logger *log.Logg
 
 	switch method {
 	case "initialize":
-		logger.Println(string(msg))
+		request := new(lsp.InitializeRequest)
+		if err := json.Unmarshal(msg, request); err != nil {
+			logger.Printf("We could not parse initialize %s", err)
+			return
+		}
+		logger.Printf("Connected to client %s %s", request.Params.ClientInfo.Name, request.Params.ClientInfo.Version)
 	}
 }
 
