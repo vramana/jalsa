@@ -160,9 +160,8 @@ func (s *Server) Analyze(fileURI string) {
 
 type SentenceCheck struct {
 	HasError    bool   `json:"hasError"`
-	Correction  string `json:"correction"`
-	Original    string `json:"original"`
-	Explanation string `json:"explanation"`
+	Correction  string `json:"correction",omitempty`
+	Explanation string `json:"explanation",omitempty`
 }
 
 func (s *Server) checkSentence(sentence string) (*SentenceCheck, error) {
@@ -208,7 +207,10 @@ Ignore any markdown formatting, such as bold, italics, etc. and only focus on th
 
 - **Corrected Sentence:** "She went to the store yesterday."
 
-- **Explanation:** The verb "go" is incorrectly used in the present tense instead of the past tense. Corrected to "went" to match the past tense context indicated by "yesterday."`,
+- **Explanation:** The verb "go" is incorrectly used in the present tense instead of the past tense. Corrected to "went" to match the past tense context indicated by "yesterday."
+
+If the sentence is grammatical correct, only reply with "{ "hasError": false, "Correction": "", "Explanation": "" }".
+`,
 				},
 				{
 					Role:    openai.ChatMessageRoleUser,
