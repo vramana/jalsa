@@ -2,61 +2,13 @@ package main
 
 import (
 	"bufio"
-	"context"
-	"crypto/sha256"
 	"encoding/json"
-	"log"
-	// "database/sql"
-	// "bytes"
-	"fmt"
 	"io"
-	// "log"
 	"os"
-	// "strings"
-	// "time"
-	// _ "github.com/mattn/go-sqlite3"
-	"github.com/sashabaranov/go-openai"
 
 	"jalsa/lsp"
+	"jalsa/rpc"
 )
-
-func checkSentence(sentence string) (string, error) {
-	prompt := `You are English Grammar teacher. For given sentence you will output whether it's gramatically correct or not. If not you will output only how it can be improved.
-Keep in mind the original choice of words are try to preserve them as much as possible.  If the sentence is correct, only reply with "Correct"
-Check this sentence. Don't repeat the original sentence.
-
-"%s"`
-	prompt = fmt.Sprintf(prompt, sentence)
-
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	client := openai.NewClient(apiKey)
-
-	resp, err := client.CreateChatCompletion(
-		context.Background(),
-		openai.ChatCompletionRequest{
-			Model: openai.GPT3Dot5Turbo,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: prompt,
-				},
-			},
-		},
-	)
-
-	if err != nil {
-		return "", err
-	}
-
-	return resp.Choices[0].Message.Content, nil
-
-}
-
-func hash(s string) string {
-	h := sha256.New()
-	h.Write([]byte(s))
-	return fmt.Sprintf("%x", h.Sum(nil))
-}
 
 // func test() {
 // 	// Iterate over os.Args slice and print each argument
@@ -121,77 +73,68 @@ func hash(s string) string {
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Split(Split)
-
-	logger := getLogger("jalsa.log")
-
-	logger.Println("Starting...")
+	scanner.Split(rpc.Split)
 
 	writer := os.Stdout
 
-	files := make(map[string]string)
+	server := lsp.NewServer()
 
 	for scanner.Scan() {
 		msg := scanner.Bytes()
-		method, msg, err := DecodeMessage(msg)
+		method, msg, err := rpc.DecodeMessage(msg)
 		if err != nil {
-			logger.Printf("Got an error %s", err)
+			server.Logger.Printf("Got an error %s", err)
 			continue
 		}
-		handleMessage(msg, writer, method, logger, files)
+		handleMessage(msg, writer, method, server)
 	}
-
 }
 
-func handleMessage(msg []byte, writer io.Writer, method string, logger *log.Logger, files map[string]string) {
-	logger.Printf("Method: %s", method)
+func handleMessage(msg []byte, writer io.Writer, method string, server *lsp.Server) {
+	server.Logger.Printf("Method: %s", method)
 	switch method {
 	case "initialize":
 		request := new(lsp.InitializeRequest)
 		if err := json.Unmarshal(msg, request); err != nil {
-			logger.Printf("We could not parse initialize %s", err)
+			server.Logger.Printf("We could not parse initialize %s", err)
 			return
 		}
-		logger.Printf("Connected to client %s %s", request.Params.ClientInfo.Name, request.Params.ClientInfo.Version)
+		server.Logger.Printf("Connected to client %s %s", request.Params.ClientInfo.Name, request.Params.ClientInfo.Version)
 
 		response := lsp.NewInitializeResponse(request.ID)
 		writeMessage(writer, response)
 	case "textDocument/didOpen":
 		notification := new(lsp.DidOpenTextDocumentNotification)
 		if err := json.Unmarshal(msg, notification); err != nil {
-			logger.Printf("We could not parse %s %s", method, err)
+			server.Logger.Printf("We could not parse %s %s", method, err)
 			return
 		}
 
-		files[notification.Params.TextDocument.URI] = notification.Params.TextDocument.Text
-		logger.Println(notification.Params.TextDocument.Text)
+		server.Files[notification.Params.TextDocument.URI] = notification.Params.TextDocument.Text
+		server.Analyze(notification.Params.TextDocument.URI)
+
 	case "textDocument/didChange":
 		notification := new(lsp.DidChangeTextDocumentNotification)
 		if err := json.Unmarshal(msg, notification); err != nil {
-			logger.Printf("We could not parse %s %s", method, err)
+			server.Logger.Printf("We could not parse %s %s", method, err)
 			return
 		}
 
-		files[notification.Params.TextDocument.URI] = notification.Params.ContentChanges[0].Text
+		server.Files[notification.Params.TextDocument.URI] = notification.Params.ContentChanges[0].Text
 	case "textDocument/didSave":
-
+		notification := new(lsp.DidSaveTextDocumentNotification)
+		if err := json.Unmarshal(msg, notification); err != nil {
+			server.Logger.Printf("We could not parse %s %s", method, err)
+			return
+		}
+		server.Analyze(notification.Params.TextDocument.URI)
 	default:
-		logger.Println(string(msg))
-
+		server.Logger.Println(string(msg))
 	}
 
-}
-
-func getLogger(filename string) *log.Logger {
-	logfile, err := os.OpenFile(filename, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		panic(err)
-	}
-
-	return log.New(logfile, "[jalsa] ", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
 func writeMessage(writer io.Writer, message any) {
-	data := EncodeMessage(message)
+	data := rpc.EncodeMessage(message)
 	writer.Write([]byte(data))
 }

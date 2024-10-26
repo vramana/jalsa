@@ -43,3 +43,7 @@ type DidSaveTextDocumentNotification struct {
 type DidSaveTextDocumentParams struct {
 	TextDocument TextDocumentIdentifier `json:"textDocument"`
 }
+
+type TextDocumentIdentifier struct {
+	URI string `json:"uri"`
+}
