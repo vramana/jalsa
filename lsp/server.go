@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sashabaranov/go-openai"
@@ -20,7 +21,7 @@ import (
 )
 
 // Define a regular expression to match sentence-ending punctuation.
-var paragraphRegex = regexp.MustCompile(`[.?!]\s*`)
+var paragraphRegex = regexp.MustCompile(`[.?!]\s+`)
 
 type ModelConfig struct {
 	Key string `json:"key"`
@@ -81,8 +82,8 @@ func NewServer() *Server {
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
 
+	db.Exec("pragma journal_mode=wal")
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS sentences (sentence_hash TEXT, sentence TEXT, correction TEXT)")
 	if err != nil {
 		panic(err)
@@ -94,7 +95,7 @@ func NewServer() *Server {
 func (s *Server) Analyze(fileURI string) {
 	s.Logger.Println("Analyzing file: ", fileURI)
 	text := s.Files[fileURI]
-	sentences := strings.Split(text, "\n")
+	lines := strings.Split(text, "\n")
 
 	paragraphs := []string{}
 	paragraph := ""
@@ -102,7 +103,7 @@ func (s *Server) Analyze(fileURI string) {
 	frontMatterChecked := false
 	skip := false
 
-	for i, sentence := range sentences {
+	for i, sentence := range lines {
 		// Ignore front matter
 		if sentence == "+++" || sentence == "---" {
 			if i == 0 {
@@ -156,19 +157,35 @@ func (s *Server) Analyze(fileURI string) {
 		paragraph = ""
 	}
 
-	sentence := paragraphRegex.Split(paragraphs[0], -1)[0]
+	for _, paragraph := range paragraphs {
+		sentences := paragraphRegex.Split(paragraph, -1)
 
-	result, err := s.checkSentence(sentence)
-	if err != nil {
-		s.Logger.Println("Error: ", err)
-		return
+		for _, sentence := range sentences {
+			check, cached := s.cachedCheck(sentence)
+			if cached {
+				s.Logger.Println("Cached: ", sentence)
+				continue
+			}
+
+			check, err := s.checkSentence(sentence)
+			if err != nil {
+				s.Logger.Println("Error: ", err)
+				continue
+			}
+
+			time.Sleep(1000 * time.Millisecond)
+
+			s.saveCheck(sentence, *check)
+
+			output, err := json.MarshalIndent(check, "", "  ")
+			if err != nil {
+				s.Logger.Println("Error: ", err)
+				continue
+			}
+			s.Logger.Println("Sentence: ", sentence)
+			s.Logger.Println("Result: ", string(output))
+		}
 	}
-	output, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		s.Logger.Println("Error: ", err)
-		return
-	}
-	s.Logger.Println("Result: ", string(output))
 }
 
 type SentenceCheck struct {
@@ -177,24 +194,24 @@ type SentenceCheck struct {
 	Explanation string `json:"explanation",omitempty`
 }
 
-func (s *Server) cachedCheck(sentence string) (SentenceCheck, bool) {
+func (s *Server) cachedCheck(sentence string) (*SentenceCheck, bool) {
 	var result string
-	var sentenceCheck SentenceCheck
+	sentenceCheck := new(SentenceCheck)
 	err := s.db.QueryRow("SELECT correction FROM sentences WHERE sentence_hash = ?", hash(sentence)).Scan(&result)
 
 	if err != nil && err != sql.ErrNoRows {
 		s.Logger.Println("Database Read Error: ", err)
-		return SentenceCheck{}, false
+		return nil, false
 	}
 
 	if err == sql.ErrNoRows {
-		return SentenceCheck{}, false
+		return nil, false
 	}
 
 	err = json.Unmarshal([]byte(result), &sentenceCheck)
 	if err != nil {
 		s.Logger.Println("Error unmarshalling: ", err)
-		return SentenceCheck{}, false
+		return nil, false
 	}
 
 	return sentenceCheck, true
