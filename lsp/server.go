@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -55,6 +56,7 @@ type Server struct {
 	Logger      *log.Logger
 	Files       map[string]string
 	ModelConfig ModelConfig
+	db          *sql.DB
 }
 
 func getLogger(filename string) *log.Logger {
@@ -75,7 +77,18 @@ func NewServer() *Server {
 		panic(err)
 	}
 
-	return &Server{Logger: logger, Files: files, ModelConfig: config}
+	db, err := sql.Open("sqlite3", "/tmp/jalsa.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS sentences (sentence_hash TEXT, sentence TEXT, correction TEXT)")
+	if err != nil {
+		panic(err)
+	}
+
+	return &Server{Logger: logger, Files: files, ModelConfig: config, db: db}
 }
 
 func (s *Server) Analyze(fileURI string) {
@@ -162,6 +175,42 @@ type SentenceCheck struct {
 	HasError    bool   `json:"hasError"`
 	Correction  string `json:"correction",omitempty`
 	Explanation string `json:"explanation",omitempty`
+}
+
+func (s *Server) cachedCheck(sentence string) (SentenceCheck, bool) {
+	var result string
+	var sentenceCheck SentenceCheck
+	err := s.db.QueryRow("SELECT correction FROM sentences WHERE sentence_hash = ?", hash(sentence)).Scan(&result)
+
+	if err != nil && err != sql.ErrNoRows {
+		s.Logger.Println("Database Read Error: ", err)
+		return SentenceCheck{}, false
+	}
+
+	if err == sql.ErrNoRows {
+		return SentenceCheck{}, false
+	}
+
+	err = json.Unmarshal([]byte(result), &sentenceCheck)
+	if err != nil {
+		s.Logger.Println("Error unmarshalling: ", err)
+		return SentenceCheck{}, false
+	}
+
+	return sentenceCheck, true
+}
+
+func (s *Server) saveCheck(sentence string, sentenceCheck SentenceCheck) {
+	data, err := json.Marshal(sentenceCheck)
+	if err != nil {
+		s.Logger.Println("Error marshalling: ", err)
+		return
+	}
+	_, err = s.db.Exec("INSERT INTO sentences (sentence_hash, sentence, correction) VALUES (?, ?, ?)", hash(sentence), sentence, string(data))
+	if err != nil {
+		s.Logger.Println("Error saving: ", err)
+		return
+	}
 }
 
 func (s *Server) checkSentence(sentence string) (*SentenceCheck, error) {
