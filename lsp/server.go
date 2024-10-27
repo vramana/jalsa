@@ -12,8 +12,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
-	"strings"
-	"time"
+	// "time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sashabaranov/go-openai"
@@ -95,96 +94,34 @@ func NewServer() *Server {
 func (s *Server) Analyze(fileURI string) {
 	s.Logger.Println("Analyzing file: ", fileURI)
 	text := s.Files[fileURI]
-	lines := strings.Split(text, "\n")
 
-	paragraphs := []string{}
-	paragraph := ""
+	sentences := s.parse(text)
 
-	frontMatterChecked := false
-	skip := false
+	for _, sentence := range sentences[0:10] {
+		s.Logger.Println(sentence.Text)
+		// check, cached := s.cachedCheck(sentence.Text)
+		// if cached {
+		// 	s.Logger.Println("Cached: ", sentence)
+		// 	continue
+		// }
 
-	for i, sentence := range lines {
-		// Ignore front matter
-		if sentence == "+++" || sentence == "---" {
-			if i == 0 {
-				frontMatterChecked = !frontMatterChecked
-			}
-			skip = !skip
-			continue
-		}
-
-		// Ignore code blocks
-		if strings.HasPrefix(sentence, "```") || strings.HasPrefix(sentence, "~~~") {
-			skip = !skip
-			continue
-		}
-
-		// Ignore links
-		if strings.Contains(sentence, "]: http") {
-			continue
-		}
-
-		// Ignore HTML comments
-		if strings.HasPrefix(sentence, "<!-") {
-			continue
-		}
-
-		if skip {
-			continue
-		}
-
-		if strings.Trim(sentence, " ") == "" {
-			if len(paragraph) > 0 {
-				paragraphs = append(paragraphs, paragraph)
-				paragraph = ""
-			}
-			continue
-		}
-		if !frontMatterChecked {
-			continue
-		}
-
-		if paragraph == "" {
-			paragraph = sentence
-		} else {
-			// Then entire paragraph will be a single line
-			paragraph += " " + sentence
-		}
-	}
-
-	if len(paragraph) > 0 {
-		paragraphs = append(paragraphs, paragraph)
-		paragraph = ""
-	}
-
-	for _, paragraph := range paragraphs {
-		sentences := paragraphRegex.Split(paragraph, -1)
-
-		for _, sentence := range sentences {
-			check, cached := s.cachedCheck(sentence)
-			if cached {
-				s.Logger.Println("Cached: ", sentence)
-				continue
-			}
-
-			check, err := s.checkSentence(sentence)
-			if err != nil {
-				s.Logger.Println("Error: ", err)
-				continue
-			}
-
-			time.Sleep(1000 * time.Millisecond)
-
-			s.saveCheck(sentence, *check)
-
-			output, err := json.MarshalIndent(check, "", "  ")
-			if err != nil {
-				s.Logger.Println("Error: ", err)
-				continue
-			}
-			s.Logger.Println("Sentence: ", sentence)
-			s.Logger.Println("Result: ", string(output))
-		}
+		// check, err := s.checkSentence(sentence.Text)
+		// if err != nil {
+		// 	s.Logger.Println("Error: ", err)
+		// 	continue
+		// }
+		//
+		// time.Sleep(1000 * time.Millisecond)
+		//
+		// s.saveCheck(sentence.Text, *check)
+		//
+		// output, err := json.MarshalIndent(check, "", "  ")
+		// if err != nil {
+		// 	s.Logger.Println("Error: ", err)
+		// 	continue
+		// }
+		// s.Logger.Println("Sentence: ", sentence)
+		// s.Logger.Println("Result: ", string(output))
 	}
 }
 
