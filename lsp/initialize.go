@@ -26,7 +26,14 @@ type InitializeResult struct {
 }
 
 type ServerCapabilities struct {
-	TextDocumentSync TextDocumentSyncOptions `json:"textDocumentSync"`
+	TextDocumentSync    TextDocumentSyncOptions `json:"textDocumentSync"`
+	DiagnosticsProvider DiagnosticsOptions      `json:"diagnosticsProvider"`
+}
+
+type DiagnosticsOptions struct {
+	Identifier            string `json:"identifier"`
+	InterFileDependencies bool   `json:"interFileDependencies"`
+	WorkspaceDiagnostics  bool   `json:"workspaceDiagnostics"`
 }
 
 type TextDocumentSyncOptions struct {
@@ -42,10 +49,7 @@ type SaveOptions struct {
 
 func NewInitializeResponse(ID *int) *InitializeResponse {
 	response := &InitializeResponse{
-		Response: Response{
-			RPC: "2.0",
-			ID:  ID,
-		},
+		Response: Response{RPC: "2.0", ID: ID},
 		Result: &InitializeResult{
 			ServerInfo: &Info{Name: "jalsa", Version: "0.0.1"},
 			Capabilities: ServerCapabilities{
@@ -53,6 +57,11 @@ func NewInitializeResponse(ID *int) *InitializeResponse {
 					OpenClose: true,
 					Change:    1,
 					Save:      SaveOptions{IncludeText: true},
+				},
+				DiagnosticsProvider: DiagnosticsOptions{
+					Identifier:            "jalsa",
+					InterFileDependencies: false,
+					WorkspaceDiagnostics:  false,
 				},
 			},
 		},

@@ -122,6 +122,7 @@ func (s *Server) Analyze(fileURI string) {
 }
 
 type SentenceCheck struct {
+	Range       Range  `json:"range"`
 	HasError    bool   `json:"hasError"`
 	Correction  string `json:"correction",omitempty`
 	Explanation string `json:"explanation",omitempty`
