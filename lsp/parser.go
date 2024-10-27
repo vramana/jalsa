@@ -21,7 +21,7 @@ type Sentence struct {
 }
 
 // Define a regular expression to match sentence-ending punctuation.
-var paragraphRegex = regexp.MustCompile(`[.?!]\s+`)
+var paragraphRegex = regexp.MustCompile(`[.?!](\s+|$)`)
 
 func parse(text string) []Sentence {
 	lines := strings.Split(text, "\n")
@@ -73,6 +73,7 @@ func parse(text string) []Sentence {
 
 				result = append(result, remaining)
 				remaining = Sentence{}
+				character += len(part) + 2
 				continue
 			}
 

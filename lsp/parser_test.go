@@ -42,6 +42,15 @@ func TestParse(t *testing.T) {
 				Sentence{"- This is a test", Range{Position{4, 0}, Position{4, 16}}},
 			},
 		},
+		ParserTest{
+			Text: `I am trying to write a simple Redis client in Rust. As part of that exercise, I have read the source code of
+Node.js Redis Client. I want to jot down some notes on how it works.`,
+			Expected: []Sentence{
+				Sentence{"I am trying to write a simple Redis client in Rust", Range{Position{0, 0}, Position{0, 50}}},
+				Sentence{"As part of that exercise, I have read the source code of Node.js Redis Client", Range{Position{0, 52}, Position{1, 20}}},
+				Sentence{"I want to jot down some notes on how it works", Range{Position{1, 22}, Position{1, 67}}},
+			},
+		},
 	}
 	for _, test := range tests {
 		result := parse(test.Text)
