@@ -111,7 +111,9 @@ func handleMessage(msg []byte, writer io.Writer, method string, server *lsp.Serv
 		}
 
 		server.Files[notification.Params.TextDocument.URI] = notification.Params.TextDocument.Text
-		server.Analyze(notification.Params.TextDocument.URI)
+
+		diagnosticsNotification := server.Analyze(notification.Params.TextDocument.URI)
+		writeMessage(writer, diagnosticsNotification)
 
 	case "textDocument/didChange":
 		notification := new(lsp.DidChangeTextDocumentNotification)
@@ -127,7 +129,10 @@ func handleMessage(msg []byte, writer io.Writer, method string, server *lsp.Serv
 			server.Logger.Printf("We could not parse %s %s", method, err)
 			return
 		}
-		server.Analyze(notification.Params.TextDocument.URI)
+
+		diagnosticsNotification := server.Analyze(notification.Params.TextDocument.URI)
+		writeMessage(writer, diagnosticsNotification)
+
 	default:
 		server.Logger.Println(string(msg))
 	}

@@ -87,7 +87,7 @@ func NewServer() *Server {
 	return &Server{Logger: logger, Files: files, ModelConfig: config, db: db}
 }
 
-func (s *Server) Analyze(fileURI string) {
+func (s *Server) Analyze(fileURI string) *PublishDiagnosticsNotification {
 	s.Logger.Println("Analyzing file: ", fileURI)
 	text := s.Files[fileURI]
 
@@ -119,6 +119,17 @@ func (s *Server) Analyze(fileURI string) {
 		// s.Logger.Println("Sentence: ", sentence)
 		// s.Logger.Println("Result: ", string(output))
 	}
+
+	return NewDiagnostics(fileURI, []Diagnostic{
+		Diagnostic{
+			Range: Range{
+				Start: Position{9, 0},
+				End:   Position{9, 10},
+			},
+			Severity: DiagnosticSeverityError,
+			Message:  "Hello, world!",
+		},
+	})
 }
 
 type SentenceCheck struct {

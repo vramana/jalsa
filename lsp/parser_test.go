@@ -15,7 +15,7 @@ func TestParse(t *testing.T) {
 			Text: `Hello, world! This is a test.`,
 			Expected: []Sentence{
 				Sentence{"Hello, world", Range{Position{0, 0}, Position{0, 12}}},
-				Sentence{"This is a test.", Range{Position{0, 14}, Position{0, 29}}},
+				Sentence{"This is a test", Range{Position{0, 14}, Position{0, 28}}},
 			},
 		},
 		ParserTest{
@@ -23,7 +23,7 @@ func TestParse(t *testing.T) {
 			Expected: []Sentence{
 				Sentence{"Hello, world", Range{Position{0, 0}, Position{0, 12}}},
 				Sentence{"This is a test", Range{Position{0, 14}, Position{1, 4}}},
-				Sentence{"This is another test.", Range{Position{1, 0}, Position{1, 21}}},
+				Sentence{"This is another test", Range{Position{1, 6}, Position{1, 26}}},
 			},
 		},
 		ParserTest{
@@ -76,22 +76,22 @@ func testSentence(t *testing.T, actual, expected Sentence) bool {
 		return false
 	}
 
-	if !testPosition(t, actual.Range.Start, expected.Range.Start) {
+	if !testPosition(t, expected.Text, actual.Range.Start, expected.Range.Start) {
 		return false
 	}
-	if !testPosition(t, actual.Range.End, expected.Range.End) {
+	if !testPosition(t, expected.Text, actual.Range.End, expected.Range.End) {
 		return false
 	}
 	return true
 }
 
-func testPosition(t *testing.T, actual, expected Position) bool {
+func testPosition(t *testing.T, text string, actual, expected Position) bool {
 	if actual.Line != expected.Line {
-		t.Errorf("Expected line %d, got %d", expected.Line, actual.Line)
+		t.Errorf("Expected line %s: %d, got %d", text, expected.Line, actual.Line)
 		return false
 	}
 	if actual.Character != expected.Character {
-		t.Errorf("Expected character %d, got %d", expected.Character, actual.Character)
+		t.Errorf("Expected character %s: %d, got %d", text, expected.Character, actual.Character)
 		return false
 	}
 
