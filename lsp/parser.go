@@ -1,7 +1,9 @@
 package lsp
 
 import (
+	"regexp"
 	"strings"
+	"testing"
 )
 
 type Position struct {
@@ -19,7 +21,10 @@ type Sentence struct {
 	Range Range  `json:"range"`
 }
 
-func (s *Server) parse(text string) []Sentence {
+// Define a regular expression to match sentence-ending punctuation.
+var paragraphRegex = regexp.MustCompile(`[.?!]\s+`)
+
+func parse(text string, t *testing.T) []Sentence {
 	lines := strings.Split(text, "\n")
 
 	remaining := Sentence{}
@@ -35,10 +40,6 @@ func (s *Server) parse(text string) []Sentence {
 				frontMatterChecked = !frontMatterChecked
 			}
 			skip = !skip
-			continue
-		}
-
-		if !frontMatterChecked {
 			continue
 		}
 
@@ -73,7 +74,18 @@ func (s *Server) parse(text string) []Sentence {
 
 				result = append(result, remaining)
 				remaining = Sentence{}
+				continue
 			}
+
+			if i == 0 && strings.HasPrefix(part, "- ") {
+				result = append(result, Sentence{
+					Text:  part,
+					Range: Range{Start: start, End: end},
+				})
+				character += len(part) + 2
+				continue
+			}
+
 			if i+1 == len(parts) {
 				remaining = Sentence{Text: part, Range: Range{Start: start, End: end}}
 			} else {
@@ -85,5 +97,10 @@ func (s *Server) parse(text string) []Sentence {
 			}
 		}
 	}
+
+	if remaining.Text != "" {
+		result = append(result, remaining)
+	}
+
 	return result
 }

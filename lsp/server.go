@@ -11,16 +11,12 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"regexp"
 	// "time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
 )
-
-// Define a regular expression to match sentence-ending punctuation.
-var paragraphRegex = regexp.MustCompile(`[.?!]\s+`)
 
 type ModelConfig struct {
 	Key string `json:"key"`
@@ -95,7 +91,7 @@ func (s *Server) Analyze(fileURI string) {
 	s.Logger.Println("Analyzing file: ", fileURI)
 	text := s.Files[fileURI]
 
-	sentences := s.parse(text)
+	sentences := parse(text, nil)
 
 	for _, sentence := range sentences[0:10] {
 		s.Logger.Println(sentence.Text)
