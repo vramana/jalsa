@@ -3,7 +3,6 @@ package lsp
 import (
 	"regexp"
 	"strings"
-	"testing"
 )
 
 type Position struct {
@@ -24,7 +23,7 @@ type Sentence struct {
 // Define a regular expression to match sentence-ending punctuation.
 var paragraphRegex = regexp.MustCompile(`[.?!]\s+`)
 
-func parse(text string, t *testing.T) []Sentence {
+func parse(text string) []Sentence {
 	lines := strings.Split(text, "\n")
 
 	remaining := Sentence{}
@@ -55,10 +54,10 @@ func parse(text string, t *testing.T) []Sentence {
 		}
 
 		if strings.Trim(line, " ") == "" {
-			// if len(paragraph) > 0 {
-			// 	paragraphs = append(paragraphs, paragraph)
-			// 	paragraph = ""
-			// }
+			if len(remaining.Text) > 0 {
+				result = append(result, remaining)
+				remaining = Sentence{}
+			}
 			continue
 		}
 

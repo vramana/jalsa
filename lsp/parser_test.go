@@ -34,9 +34,17 @@ func TestParse(t *testing.T) {
 				Sentence{"- This is a test", Range{Position{2, 0}, Position{2, 16}}},
 			},
 		},
+		ParserTest{
+			Text: "Hello world\n  \nThis is a sentence\n\n- This is a test",
+			Expected: []Sentence{
+				Sentence{"Hello world", Range{Position{0, 0}, Position{0, 11}}},
+				Sentence{"This is a sentence", Range{Position{2, 0}, Position{2, 18}}},
+				Sentence{"- This is a test", Range{Position{4, 0}, Position{4, 16}}},
+			},
+		},
 	}
 	for _, test := range tests {
-		result := parse(test.Text, t)
+		result := parse(test.Text)
 
 		if len(result) != len(test.Expected) {
 			t.Errorf("Expected %d sentences, got %d", len(test.Expected), len(result))

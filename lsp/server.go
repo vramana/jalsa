@@ -91,7 +91,7 @@ func (s *Server) Analyze(fileURI string) {
 	s.Logger.Println("Analyzing file: ", fileURI)
 	text := s.Files[fileURI]
 
-	sentences := parse(text, nil)
+	sentences := parse(text)
 
 	for _, sentence := range sentences[0:10] {
 		s.Logger.Println(sentence.Text)
