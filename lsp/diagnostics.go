@@ -40,6 +40,6 @@ func ConvertCheckToDiagnostic(check SentenceCheck) Diagnostic {
 	return Diagnostic{
 		Range:    check.Range,
 		Severity: DiagnosticSeverityError,
-		Message:  check.Explanation,
+		Message:  check.Explanation + "\n\n" + check.Correction,
 	}
 }

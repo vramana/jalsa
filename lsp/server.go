@@ -11,7 +11,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	// "time"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sashabaranov/go-openai"
@@ -88,48 +88,35 @@ func NewServer() *Server {
 }
 
 func (s *Server) Analyze(fileURI string) *PublishDiagnosticsNotification {
-	s.Logger.Println("Analyzing file: ", fileURI)
 	text := s.Files[fileURI]
 
 	sentences := parse(text)
+	diagnostics := []Diagnostic{}
 
-	for _, sentence := range sentences[0:10] {
-		s.Logger.Println(sentence.Text)
-		// check, cached := s.cachedCheck(sentence.Text)
-		// if cached {
-		// 	s.Logger.Println("Cached: ", sentence)
-		// 	continue
-		// }
+	for _, sentence := range sentences {
+		// s.Logger.Println(sentence.Text)
+		check, cached := s.cachedCheck(sentence)
+		if cached {
+			if check.HasError {
+				diagnostics = append(diagnostics, ConvertCheckToDiagnostic(*check))
+			}
 
-		// check, err := s.checkSentence(sentence.Text)
-		// if err != nil {
-		// 	s.Logger.Println("Error: ", err)
-		// 	continue
-		// }
-		//
-		// time.Sleep(1000 * time.Millisecond)
-		//
-		// s.saveCheck(sentence.Text, *check)
-		//
-		// output, err := json.MarshalIndent(check, "", "  ")
-		// if err != nil {
-		// 	s.Logger.Println("Error: ", err)
-		// 	continue
-		// }
-		// s.Logger.Println("Sentence: ", sentence)
-		// s.Logger.Println("Result: ", string(output))
+			continue
+		}
+
+		check, err := s.checkSentence(sentence)
+		if err != nil {
+			continue
+		}
+		if check.HasError {
+			diagnostics = append(diagnostics, ConvertCheckToDiagnostic(*check))
+		}
+		s.saveCheck(sentence.Text, *check)
+
+		time.Sleep(1000 * time.Millisecond)
 	}
 
-	return NewDiagnostics(fileURI, []Diagnostic{
-		Diagnostic{
-			Range: Range{
-				Start: Position{9, 0},
-				End:   Position{9, 10},
-			},
-			Severity: DiagnosticSeverityError,
-			Message:  "Hello, world!",
-		},
-	})
+	return NewDiagnostics(fileURI, diagnostics)
 }
 
 type SentenceCheck struct {
@@ -139,10 +126,10 @@ type SentenceCheck struct {
 	Explanation string `json:"explanation",omitempty`
 }
 
-func (s *Server) cachedCheck(sentence string) (*SentenceCheck, bool) {
+func (s *Server) cachedCheck(sentence Sentence) (*SentenceCheck, bool) {
 	var result string
 	sentenceCheck := new(SentenceCheck)
-	err := s.db.QueryRow("SELECT correction FROM sentences WHERE sentence_hash = ?", hash(sentence)).Scan(&result)
+	err := s.db.QueryRow("SELECT correction FROM sentences WHERE sentence_hash = ?", hash(sentence.Text)).Scan(&result)
 
 	if err != nil && err != sql.ErrNoRows {
 		s.Logger.Println("Database Read Error: ", err)
@@ -158,6 +145,8 @@ func (s *Server) cachedCheck(sentence string) (*SentenceCheck, bool) {
 		s.Logger.Println("Error unmarshalling: ", err)
 		return nil, false
 	}
+
+	sentenceCheck.Range = sentence.Range
 
 	return sentenceCheck, true
 }
@@ -175,9 +164,9 @@ func (s *Server) saveCheck(sentence string, sentenceCheck SentenceCheck) {
 	}
 }
 
-func (s *Server) checkSentence(sentence string) (*SentenceCheck, error) {
+func (s *Server) checkSentence(sentence Sentence) (*SentenceCheck, error) {
 	prompt := "Check this sentence\n----\n%s"
-	prompt = fmt.Sprintf(prompt, sentence)
+	prompt = fmt.Sprintf(prompt, sentence.Text)
 
 	client := openai.NewClient(s.ModelConfig.Key)
 	result := new(SentenceCheck)
@@ -240,6 +229,8 @@ If the sentence is grammatical correct, only reply with "{ "hasError": false, "C
 	if err != nil {
 		return nil, err
 	}
+
+	result.Range = sentence.Range
 
 	return result, nil
 }
