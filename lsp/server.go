@@ -16,6 +16,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
+	"golang.org/x/time/rate"
 )
 
 type ModelConfig struct {
@@ -53,6 +54,7 @@ type Server struct {
 	Files       map[string]string
 	ModelConfig ModelConfig
 	db          *sql.DB
+	limiter     *rate.Limiter
 }
 
 func getLogger(filename string) *log.Logger {
@@ -68,6 +70,7 @@ func NewServer() *Server {
 	files := make(map[string]string)
 	logger := getLogger("jalsa.log")
 	config, err := readConfig()
+	limiter := rate.NewLimiter(rate.Every(time.Minute), 200)
 
 	if err != nil {
 		panic(err)
@@ -84,7 +87,13 @@ func NewServer() *Server {
 		panic(err)
 	}
 
-	return &Server{Logger: logger, Files: files, ModelConfig: config, db: db}
+	return &Server{
+		Logger:      logger,
+		Files:       files,
+		ModelConfig: config,
+		db:          db,
+		limiter:     limiter,
+	}
 }
 
 func (s *Server) Analyze(fileURI string) *PublishDiagnosticsNotification {
@@ -94,7 +103,10 @@ func (s *Server) Analyze(fileURI string) *PublishDiagnosticsNotification {
 	diagnostics := []Diagnostic{}
 
 	for _, sentence := range sentences {
-		// s.Logger.Println(sentence.Text)
+		err := s.limiter.Wait(context.Background())
+		if err != nil {
+			panic(err)
+		}
 		check, cached := s.cachedCheck(sentence)
 		if cached {
 			if check.HasError {
@@ -104,7 +116,7 @@ func (s *Server) Analyze(fileURI string) *PublishDiagnosticsNotification {
 			continue
 		}
 
-		check, err := s.checkSentence(sentence)
+		check, err = s.checkSentence(sentence)
 		if err != nil {
 			continue
 		}
@@ -112,8 +124,6 @@ func (s *Server) Analyze(fileURI string) *PublishDiagnosticsNotification {
 			diagnostics = append(diagnostics, ConvertCheckToDiagnostic(*check))
 		}
 		s.saveCheck(sentence.Text, *check)
-
-		time.Sleep(1000 * time.Millisecond)
 	}
 
 	return NewDiagnostics(fileURI, diagnostics)
