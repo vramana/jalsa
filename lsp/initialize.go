@@ -6,23 +6,23 @@ type InitializeRequest struct {
 }
 
 type InitializeParams struct {
-	ProcessID  *int  `json:"processId",omitempty`
-	ClientInfo *Info `json:"clientInfo",omitempty`
+	ProcessID  *int  `json:"processId,omitempty"`
+	ClientInfo *Info `json:"clientInfo,omitempty"`
 }
 
 type Info struct {
 	Name    string `json:"name"`
-	Version string `json:"version",omitempty`
+	Version string `json:"version,omitempty"`
 }
 
 type InitializeResponse struct {
 	Response
-	Result *InitializeResult `json:"result",omitempty`
+	Result *InitializeResult `json:"result,omitempty"`
 }
 
 type InitializeResult struct {
 	Capabilities ServerCapabilities `json:"capabilities"`
-	ServerInfo   *Info              `json:"serverInfo",omitempty`
+	ServerInfo   *Info              `json:"serverInfo,omitempty"`
 }
 
 type ServerCapabilities struct {

@@ -102,6 +102,7 @@ func (s *Server) Analyze(fileURI string) *PublishDiagnosticsNotification {
 	sentences := parse(text)
 	diagnostics := []Diagnostic{}
 
+	// TODO: parallelize requests to check sentences
 	for _, sentence := range sentences {
 		err := s.limiter.Wait(context.Background())
 		if err != nil {
@@ -132,8 +133,8 @@ func (s *Server) Analyze(fileURI string) *PublishDiagnosticsNotification {
 type SentenceCheck struct {
 	Range       Range  `json:"range"`
 	HasError    bool   `json:"hasError"`
-	Correction  string `json:"correction",omitempty`
-	Explanation string `json:"explanation",omitempty`
+	Correction  string `json:"correction,omitempty"`
+	Explanation string `json:"explanation,omitempty"`
 }
 
 func (s *Server) cachedCheck(sentence Sentence) (*SentenceCheck, bool) {
