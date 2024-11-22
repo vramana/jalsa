@@ -10,67 +10,6 @@ import (
 	"jalsa/rpc"
 )
 
-// func test() {
-// 	// Iterate over os.Args slice and print each argument
-//
-// 	db, err := sql.Open("sqlite3", "./test.db")
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	defer db.Close()
-//
-// 	arg := os.Args[1]
-// 	b, err := os.ReadFile(arg)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return
-// 	}
-//
-// 	fmt.Printf("Reading file: %s\n", arg)
-//
-// 	contents := string(b)
-// 	sentences := strings.Split(contents, "\n")
-//
-// 	frontMatter := false
-//
-// 	for _, sentence := range sentences {
-// 		if sentence == "+++" {
-// 			frontMatter = !frontMatter
-// 			continue
-// 		}
-// 		if sentence == "" {
-// 			continue
-// 		}
-// 		fmt.Printf("Checking sentence: %s\n", sentence)
-// 		h := hash(sentence)
-// 		var result string
-// 		err = db.QueryRow("SELECT correction FROM sentences WHERE sentence_hash = ?", h).Scan(&result)
-//
-// 		if err != nil && err != sql.ErrNoRows {
-// 			fmt.Printf("Error: %v\n", err)
-// 			continue
-// 		}
-//
-// 		if result != "" {
-// 			fmt.Printf("Result: %s\n", result)
-// 			continue
-// 		}
-//
-// 		fmt.Printf("Not found in cache\n")
-//
-// 		result, err = checkSentence(sentence)
-// 		if err != nil {
-// 			fmt.Printf("Error: %v\n", err)
-// 			continue
-// 		}
-// 		fmt.Printf("Result: %s\n", result)
-//
-// 		time.Sleep(100 * time.Millisecond)
-//
-// 		_, err = db.Exec("INSERT INTO sentences (sentence_hash, sentence, correction) VALUES (?, ?, ?)", hash(sentence), sentence, result)
-// 	}
-// }
-
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Split(rpc.Split)
@@ -130,6 +69,8 @@ func handleMessage(msg []byte, writer io.Writer, method string, server *lsp.Serv
 			return
 		}
 
+		// TODO: Instead of sending empty diagnostics, send cached diagnostics
+		writeMessage(writer, lsp.NewDiagnostics(notification.Params.TextDocument.URI, []lsp.Diagnostic{}))
 		diagnosticsNotification := server.Analyze(notification.Params.TextDocument.URI)
 		writeMessage(writer, diagnosticsNotification)
 
