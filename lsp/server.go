@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"sync"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -55,6 +56,7 @@ type Server struct {
 	ModelConfig ModelConfig
 	db          *sql.DB
 	limiter     *rate.Limiter
+	mu          sync.Mutex
 }
 
 func getLogger(filename string) *log.Logger {
@@ -104,16 +106,18 @@ func (s *Server) Analyze(fileURI string) *PublishDiagnosticsNotification {
 
 	// TODO: parallelize requests to check sentences
 	for _, sentence := range sentences {
-		err := s.limiter.Wait(context.Background())
-		if err != nil {
-			panic(err)
-		}
 		check, cached := s.cachedCheck(sentence)
 		if cached {
 			if check.HasError {
 				diagnostics = append(diagnostics, ConvertCheckToDiagnostic(*check))
 			}
 
+			continue
+		}
+
+		err := s.limiter.Wait(context.Background())
+		if err != nil {
+			s.Logger.Println("Rate Limit Error: ", err)
 			continue
 		}
 
