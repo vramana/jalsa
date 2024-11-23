@@ -98,38 +98,65 @@ func NewServer() *Server {
 	}
 }
 
-func (s *Server) Analyze(fileURI string) *PublishDiagnosticsNotification {
+func (s *Server) CachedDiagnostics(fileURI string) *PublishDiagnosticsNotification {
 	text := s.Files[fileURI]
 
 	sentences := parse(text)
 	diagnostics := []Diagnostic{}
 
-	// TODO: parallelize requests to check sentences
 	for _, sentence := range sentences {
 		check, cached := s.cachedCheck(sentence)
 		if cached {
 			if check.HasError {
 				diagnostics = append(diagnostics, ConvertCheckToDiagnostic(*check))
 			}
-
-			continue
 		}
-
-		err := s.limiter.Wait(context.Background())
-		if err != nil {
-			s.Logger.Println("Rate Limit Error: ", err)
-			continue
-		}
-
-		check, err = s.checkSentence(sentence)
-		if err != nil {
-			continue
-		}
-		if check.HasError {
-			diagnostics = append(diagnostics, ConvertCheckToDiagnostic(*check))
-		}
-		s.saveCheck(sentence.Text, *check)
 	}
+
+	return NewDiagnostics(fileURI, diagnostics)
+}
+
+func (s *Server) Analyze(fileURI string) *PublishDiagnosticsNotification {
+	text := s.Files[fileURI]
+
+	sentences := parse(text)
+	diagnostics := []Diagnostic{}
+	var wg sync.WaitGroup
+
+	// TODO: parallelize requests to check sentences
+	for _, sentence := range sentences {
+		wg.Add(1)
+		go func(sentence Sentence) {
+			defer wg.Done()
+			check, cached := s.cachedCheck(sentence)
+			if cached {
+				if check.HasError {
+					s.mu.Lock()
+					defer s.mu.Unlock()
+					diagnostics = append(diagnostics, ConvertCheckToDiagnostic(*check))
+				}
+				return
+			}
+
+			err := s.limiter.Wait(context.Background())
+			if err != nil {
+				s.Logger.Println("Rate Limit Error: ", err)
+				return
+			}
+
+			check, err = s.checkSentence(sentence)
+			if err != nil {
+				return
+			}
+			if check.HasError {
+				s.mu.Lock()
+				defer s.mu.Unlock()
+				diagnostics = append(diagnostics, ConvertCheckToDiagnostic(*check))
+			}
+			s.saveCheck(sentence.Text, *check)
+		}(sentence)
+	}
+	wg.Wait()
 
 	return NewDiagnostics(fileURI, diagnostics)
 }
