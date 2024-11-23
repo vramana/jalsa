@@ -146,6 +146,7 @@ func (s *Server) Analyze(fileURI string) *PublishDiagnosticsNotification {
 
 			check, err = s.checkSentence(sentence)
 			if err != nil {
+				s.Logger.Println("Error checking sentence: ", err)
 				return
 			}
 			if check.HasError {
@@ -164,8 +165,8 @@ func (s *Server) Analyze(fileURI string) *PublishDiagnosticsNotification {
 type SentenceCheck struct {
 	Range       Range  `json:"range"`
 	HasError    bool   `json:"hasError"`
-	Correction  string `json:"correction,omitempty"`
-	Explanation string `json:"explanation,omitempty"`
+	Correction  string `json:"correction"`
+	Explanation string `json:"explanation"`
 }
 
 func (s *Server) cachedCheck(sentence Sentence) (*SentenceCheck, bool) {
