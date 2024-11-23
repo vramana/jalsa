@@ -69,7 +69,6 @@ func handleMessage(msg []byte, writer io.Writer, method string, server *lsp.Serv
 			return
 		}
 
-		// TODO: Instead of sending empty diagnostics, send cached diagnostics
 		writeMessage(writer, server.CachedDiagnostics(notification.Params.TextDocument.URI))
 		diagnosticsNotification := server.Analyze(notification.Params.TextDocument.URI)
 		writeMessage(writer, diagnosticsNotification)
